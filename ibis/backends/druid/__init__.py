@@ -21,6 +21,7 @@ from ibis.backends.sql import SQLBackend
 from ibis.backends.sql.compilers.base import STAR
 from ibis.backends.sql.datatypes import DruidType
 from ibis.backends.tests.errors import PyDruidProgrammingError
+import re
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
