@@ -138,18 +138,53 @@ class Backend(SQLBackend, NoExampleLoader):
         with self._safe_raw_sql(f"EXPLAIN PLAN FOR {query}") as result:
             [(row, *_)] = result.fetchall()
 
-        (plan,) = json.loads(row)
-
         schema = {}
 
-        for column in plan["signature"]:
+        try:
+            # Try to parse as JSON
+            (plan,) = json.loads(row)
+
+            for column in plan["signature"]:
             name, typ = column["name"], column["type"]
             if name == "__time":
                 dtype = dt.timestamp
             else:
                 dtype = DruidType.from_string(typ)
             schema[name] = dtype
+
+        except (json.JSONDecodeError, TypeError):
+            # Fallback for INFORMATION_SCHEMA queries (non-JSON plan)
+            # Extract column names using regex
+            match = re.search(r'Project\((.*?)\)', row)
+            if not match:
+            match = re.search(r'BindableProject\((.*?)\)', row)
+            if match:
+            column_defs = match.group(1)
+            column_names = [
+                part.split('=')[0].strip()
+                for part in column_defs.split(',')
+                if '=' in part
+            ]
+            for col in column_names:
+                schema[col] = dt.string  # fallback to string
+            else:
+            raise
         return sch.Schema(schema)
+            with self._safe_raw_sql(f"EXPLAIN PLAN FOR {query}") as result:
+                [(row, *_)] = result.fetchall()
+
+            (plan,) = json.loads(row)
+
+            schema = {}
+
+            for column in plan["signature"]:
+                name, typ = column["name"], column["type"]
+                if name == "__time":
+                    dtype = dt.timestamp
+                else:
+                    dtype = DruidType.from_string(typ)
+                schema[name] = dtype
+            return sch.Schema(schema)
 
     def _table_exists(self, name: str):
         quoted = self.compiler.quoted
